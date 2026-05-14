@@ -198,7 +198,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 // Activez l'API Google Drive, créez des identifiants OAuth 2.0
 // Ajoutez l'URL de ce fichier comme "URI de redirection autorisée"
 // ══════════════════════════════════════════════════════════════
-const GOOGLE_CLIENT_ID = 217596651389-k25gffhhchfj15fmiigoekiaac9avjea.apps.googleusercontent.com ;
+const GOOGLE_CLIENT_ID = '217596651389-k25gffhhchfj15fmiigoekiaac9avjea.apps.googleusercontent.com';
 const DRIVE_FILE_ID    = '1-FIKosId_JKWAic5HrgmsEYwD1BtLtPD'; // orbit-data.json déjà créé
 const SCOPES           = 'https://www.googleapis.com/auth/drive.file';
 
@@ -269,10 +269,8 @@ async function loadFromDrive(){
 }
 
 async function saveToDrive(){
-  if(localMode){
-    localStorage.setItem('orbit-local',JSON.stringify({projects}));
-    setSyncStatus('local','Sauvegardé localement · '+hms()); return;
-  }
+  localStorage.setItem('orbit-local',JSON.stringify({projects}));
+  if(localMode){ setSyncStatus('local','Sauvegardé localement · '+hms()); return; }
   if(!accessToken){ setSyncStatus('err','Token expiré — reconnectez-vous'); return; }
   setSyncStatus('loading','Sauvegarde sur Google Drive...');
   try{
@@ -282,8 +280,7 @@ async function saveToDrive(){
       body:JSON.stringify({version:1,lastSaved:new Date().toISOString(),projects})
     });
     setSyncStatus('ok','Sauvegardé sur Drive · '+hms());
-    localStorage.setItem('orbit-local',JSON.stringify({projects})); // backup local
-  }catch(e){ setSyncStatus('err','Erreur de sauvegarde'); }
+  }catch(e){ setSyncStatus('err','Erreur Drive — copie locale conservée'); }
 }
 
 function scheduleAutoSave(){ clearTimeout(saveTimer); saveTimer=setTimeout(saveToDrive,1800); }
@@ -333,12 +330,16 @@ function defaultProjects(){
 // ─── INIT ─────────────────────────────────────────────────────
 function init(){
   if(checkOAuthCallback()) return;
-  // Already configured with a real client ID → show auth
+  // Always pre-load from localStorage first so the app never stays stuck
+  projects = loadLocalData();
+  // If a real Google Client ID is set, show the auth overlay
   if(GOOGLE_CLIENT_ID !== 'VOTRE_CLIENT_ID.apps.googleusercontent.com'){
     document.getElementById('auth-overlay').style.display='flex'; return;
   }
-  // Demo/dev mode: use localStorage
-  startLocalMode();
+  // Local mode (no client ID configured yet)
+  localMode = true;
+  setSyncStatus('local','Données sauvegardées localement dans votre navigateur');
+  boot();
 }
 
 function boot(){
